@@ -36,7 +36,10 @@
 
 ### 🔍 **Phase 1: Intelligent Content Acquisition**
 - **Multi-Source Scraping**: Waterfall system across 30+ high-engagement subreddits (AITA, TIFU, TrueOffMyChest, confessions, pettyrevenge, etc.)
-- **Smart Filtering**: 
+- **Browser Impersonation**: Uses `curl_cffi` with `impersonate="chrome120"` — bypasses Reddit's bot detection that broke the old anonymous `.json` endpoint trick
+- **Cookie-Based Authentication**: Loads real browser cookies from `cookies.json` (exported via Cookie Editor extension) into a persistent session, making requests indistinguishable from a logged-in Chrome user
+- **Rate Limiting**: 5-second sleep between subreddit requests to avoid triggering Reddit's rate limiter
+- **Smart Filtering**:
   - Language detection (English-only)
   - Optimal word count (120-380 words for 60-180 second videos)
   - Duplicate prevention via persistent JSON database
@@ -48,8 +51,8 @@
   - Hook A/B testing (AI-generated vs original title ranking)
   - Dynamic SEO tag generation (5 keywords per video)
   - Slang/acronym normalization (AITA → "Am I the jerk", 19F → "a 19 year old woman", etc.)
-- **Failover System**: Falls back to local cold storage if all live sources fail
-- **Upload Automation**: YouTube and Instagram automation modules (setup required)
+- **Platform Upload Tracking**: Each story saved with per-platform posted flags (`posted_youtube`, `posted_instagram`, `posted_tiktok`, `posted_facebook`, `posted_snapchat`, `posted_twitter`, `posted_linkedin`) and a `time` timestamp
+- **Failover System**: Falls back to local cold storage if all live sources fail. Backlog auto-resets all `used` flags when exhausted instead of crashing
 
 ### 🎙️ **Phase 2: Professional Audio Synthesis**
 - **Edge TTS Integration**: Microsoft's neural voices for natural-sounding narration
@@ -62,7 +65,7 @@
 ### 🎥 **Phase 3: Viral Video Composition**
 - **9:16 Vertical Format**: Optimized for mobile-first platforms
 - **Dynamic Background Selection**: Random gameplay footage (Minecraft, GTA 5)
-- **Animated Subtitles**: 
+- **Animated Subtitles**:
   - Impact font with stroke for maximum readability
   - 3-word chunks with pop-in animations
   - Mathematically synced to word-level audio timestamps
@@ -87,7 +90,7 @@
 - **Sanitized Filenames**: OS-safe naming with Reddit ID-based uniqueness
 - **Error Handling**: Comprehensive try-catch blocks with detailed logging
 - **Video Path Utilities**: Batch processing helpers for upload automation
-- **Persistent Database**: JSON-based story tracking with "used" flag system
+- **Persistent Database**: JSON-based story tracking with per-platform posted flags
 - **Sleep Prevention**: Windows execution state management to prevent system sleep
 
 ---
@@ -143,12 +146,12 @@ AutoContent/
 ├── 📥 yt_downloader.py      # Background footage downloader (yt-dlp wrapper)
 ├── 📧 reminder.py           # Batch management & email alerts (7-video threshold)
 ├── 📤 yt_automation.py      # YouTube upload automation (OAuth setup required)
-├── 📱 ig_login.py           # Run this script and log into instagram only once (One-Time Run)
 ├── 📱 insta_automation.py   # Instagram upload automation (Graph API setup required)
 ├── 🔧 get_videopaths.py     # Video path utility for batch processing
 ├── ⚙️ run_factory.bat       # Windows Task Scheduler entry point (3 videos per run)
 ├── 📦 requirements.txt      # Python dependencies
-├── 🗄️ scripts.json          # Persistent story database with "used" tracking
+├── 🗄️ scripts.json          # Persistent story database with per-platform tracking
+├── 🍪 cookies.json          # Reddit browser cookies (exported via Cookie Editor)
 ├── 📝 hidden_depedencies.txt # System dependency checklist
 ├── 📄 TrendingDescription.txt # Sample trending content reference
 ├── 🎬 downloads/            # Background video assets (2 videos included)
@@ -167,7 +170,7 @@ AutoContent/
 | **Voice Synthesis** | Edge-TTS | Neural text-to-speech (streaming) |
 | **Video Processing** | MoviePy 1.0.3 | Compositing & rendering |
 | **Image Processing** | ImageMagick | Text rendering backend for subtitles |
-| **Web Scraping** | Requests | Reddit JSON API interaction |
+| **Web Scraping** | curl_cffi | Reddit scraping with Chrome browser impersonation |
 | **NLP** | langdetect | Language filtering |
 | **Video Download** | yt-dlp | Background footage acquisition |
 | **Email** | smtplib | Gmail SMTP notifications |
@@ -201,7 +204,7 @@ pip install -r requirements.txt
 ```
 
 **Dependencies installed:**
-- requests
+- curl_cffi
 - python-dotenv
 - langdetect
 - edge-tts
@@ -233,7 +236,18 @@ sudo apt install ffmpeg imagemagick
 curl -fsSL https://deno.land/install.sh | sh
 ```
 
-### Step 4: Configure Environment Variables
+### Step 4: Export Reddit Cookies
+
+Reddit's public `.json` API now blocks anonymous and bot-like requests. The scraper bypasses this using real browser cookies loaded into a `curl_cffi` session that impersonates Chrome 120.
+
+1. Install the **Cookie Editor** browser extension ([Chrome](https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm) / [Firefox](https://addons.mozilla.org/en-US/firefox/addon/cookie-editor/))
+2. Log into [reddit.com](https://reddit.com) in your browser
+3. Open Cookie Editor and click **Export → Export as JSON**
+4. Save the file as `cookies.json` in the project root
+
+> **Note**: Cookies expire periodically. If scraping starts failing with 403 errors, re-export fresh cookies from your browser and replace `cookies.json`.
+
+### Step 5: Configure Environment Variables
 
 Create a `.env` file in the project root:
 
@@ -254,7 +268,7 @@ EMAIL_APP_PASS=your_gmail_app_password
 
 > **LLM Keys**: You only need ONE API key to start, but having multiple provides better reliability through automatic failover
 
-### Step 5: Download Background Videos
+### Step 6: Download Background Videos
 
 ```bash
 python yt_downloader.py "https://youtube.com/watch?v=MINECRAFT_VIDEO_ID"
@@ -267,7 +281,7 @@ Or manually place 9:16 or 16:9 gameplay videos in the `downloads/` folder.
 - Insanely Crazy GTA 5 Mega Ramp Gameplay (4K 60fps)
 - Minecraft Parkour Gameplay No Copyright (4K)
 
-### Step 6: Configure ImageMagick Path (Windows Only)
+### Step 7: Configure ImageMagick Path (Windows Only)
 
 Edit `phase3.py` line 5 to match your ImageMagick installation:
 
@@ -275,7 +289,7 @@ Edit `phase3.py` line 5 to match your ImageMagick installation:
 os.environ["IMAGEMAGICK_BINARY"] = r"C:\Program Files\ImageMagick-7.1.2-Q16-HDRI\magick.exe"
 ```
 
-### Step 7: Configure Batch Script Path (Windows Only)
+### Step 8: Configure Batch Script Path (Windows Only)
 
 Edit `run_factory.bat` lines 5 and 17 to match your project location and Python installation:
 
@@ -330,19 +344,20 @@ Returns absolute paths of all videos in `ready_to_upload/` for batch upload scri
 
 ```
 1. [03:00 AM] Task Scheduler triggers run_factory.bat
-2. [03:00:05] Phase 1 scrapes random subreddit from 30+ sources
-3. [03:00:12] LLM Router tries OpenRouter → generates viral hook
-4. [03:00:15] Gender detected: Female → Voice: en-US-AriaNeural (random from 3 variants)
-5. [03:00:18] Hook ranking: AI vs Original → Winner selected
-6. [03:00:22] SEO tags generated: ["reddit", "storytime", "drama", ...]
-7. [03:00:45] Phase 2 generates audio + word-level timestamps
-8. [03:01:30] Phase 3 renders vertical video with animated subtitles
-9. [03:02:00] Cleanup removes temporary audio/JSON files
-10. [03:02:05] Loop repeats 2 more times (3 videos total per run)
-11. [03:06:15] Reminder script checks inventory (9/7 videos)
-12. [03:06:20] Email sent: "🟢 FACTORY ALERT: Weekly Batch Ready"
-13. [03:06:25] 9 videos moved to ready_to_upload/ folder
-14. [Manual] Run upload automation scripts or manual upload
+2. [03:00:05] Phase 1 loads cookies.json → builds Chrome-impersonating session
+3. [03:00:10] Scrapes random subreddit from 30+ sources (5s delay between attempts)
+4. [03:00:17] LLM Router tries OpenRouter → generates viral hook
+5. [03:00:20] Gender detected: Female → Voice: en-US-AriaNeural (random from 3 variants)
+6. [03:00:23] Hook ranking: AI vs Original → Winner selected
+7. [03:00:27] SEO tags generated: ["reddit", "storytime", "drama", ...]
+8. [03:00:50] Phase 2 generates audio + word-level timestamps
+9. [03:01:35] Phase 3 renders vertical video with animated subtitles
+10. [03:02:05] Cleanup removes temporary audio/JSON files
+11. [03:02:10] Loop repeats 2 more times (3 videos total per run)
+12. [03:06:20] Reminder script checks inventory (9/7 videos)
+13. [03:06:25] Email sent: "🟢 FACTORY ALERT: Weekly Batch Ready"
+14. [03:06:30] 9 videos moved to ready_to_upload/ folder
+15. [Manual] Run upload automation scripts or manual upload
 ```
 
 ---
@@ -351,7 +366,7 @@ Returns absolute paths of all videos in `ready_to_upload/` for batch upload scri
 
 ### Add More Subreddits
 
-Edit `phase1.py` lines 30-65:
+Edit `phase1.py` lines 42-77:
 
 ```python
 SUBREDDITS = [
@@ -381,7 +396,7 @@ Male voice is set on line 19: `"en-US-ChristopherNeural"`
 
 ### Adjust Video Length
 
-Edit `phase1.py` line 175:
+Edit `phase1.py`:
 
 ```python
 if 120 < len(words) < 380:  # Change word count range (current: ~60-180 seconds)
@@ -422,7 +437,7 @@ SYNC_OFFSET = -0.3  # Negative = earlier, Positive = later
 
 ### Configure LLM Provider Priority
 
-Edit `llm_router.py` lines 125-127:
+Edit `llm_router.py`:
 
 ```python
 CHEAP_PROVIDERS = [openrouter_chat, hf_chat, gemini_chat]
@@ -441,6 +456,12 @@ TEST_MODE = True  # Renders only first 10 seconds
 
 ## 🐛 Troubleshooting
 
+### Issue: "403 Forbidden / scraping fails"
+**Solution**: Your `cookies.json` has expired. Re-export fresh cookies from your browser using Cookie Editor and replace the file in the project root
+
+### Issue: "cookies.json not found"
+**Solution**: Export your Reddit cookies using the Cookie Editor browser extension and save as `cookies.json` in the project root. See Step 4 in Installation
+
 ### Issue: "ImageMagick not found"
 **Solution**: Update the path in `phase3.py` line 5 to match your installation
 
@@ -451,13 +472,13 @@ TEST_MODE = True  # Renders only first 10 seconds
 **Solution**: Ensure FFmpeg is in your system PATH. Run `ffmpeg -version` to verify. The `yt_downloader.py` script includes dependency checks
 
 ### Issue: "Email sending failed"
-**Solution**: 
+**Solution**:
 1. Enable 2FA on Gmail
 2. Generate an App Password
 3. Use the App Password in `.env`, not your regular password
 
 ### Issue: "All LLM providers failed"
-**Solution**: 
+**Solution**:
 1. Check that at least one API key is valid in `.env`
 2. Verify API quotas haven't been exceeded
 3. Check internet connection
@@ -489,8 +510,8 @@ TEST_MODE = True  # Renders only first 10 seconds
 
 - ✅ No user data collection
 - ✅ API keys stored in `.env` (gitignored)
-- ✅ Reddit scraping complies with API terms
-- ✅ All content is public domain (Reddit posts)
+- ✅ `cookies.json` should be gitignored — never commit your session cookies
+- ✅ All content is public Reddit posts
 - ✅ No personal information in generated videos
 - ✅ Multi-provider LLM routing prevents vendor lock-in
 
@@ -506,8 +527,11 @@ TEST_MODE = True  # Renders only first 10 seconds
 - [x] Gender-based voice selection
 - [x] Automated cleanup system
 - [x] Email notification system
+- [x] Browser impersonation via curl_cffi (Chrome 120)
+- [x] Cookie-based Reddit authentication
+- [x] Per-platform upload tracking in database
 - [ ] YouTube upload automation (OAuth setup required)
-- [ ] Instagram Reels upload automation 
+- [ ] Instagram Reels upload automation (Graph API setup required)
 - [ ] TikTok upload automation (no official API - Selenium needed)
 - [ ] Thumbnail generation with text overlay
 - [ ] Analytics dashboard (views, engagement tracking)
@@ -538,18 +562,19 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Reddit API** - Content source
+- **Reddit** - Content source
 - **Microsoft Edge TTS** - Neural voice synthesis
 - **Groq, Cerebras, Gemini, HuggingFace, OpenRouter** - LLM infrastructure
 - **MoviePy** - Video processing framework
 - **yt-dlp** - Video download utility
+- **curl_cffi** - Browser impersonation for bot-resistant scraping
+- **Cookie Editor** - Browser extension for session cookie export
 
 ---
 
 ## 📞 Contact
 
-- **Project Link**: [https://github.com/indiser/ViralContent-Factory](https://github.com/indiser/ViralContent-Factory)
-- **Email**: indiser01@gmail.com
+**Project Link**: [https://github.com/indiser/ViralContent-Factory](https://github.com/indiser/ViralContent-Factory)
 
 ---
 
