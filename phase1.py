@@ -1,4 +1,3 @@
-# import requests
 from curl_cffi import requests
 import json
 import random
@@ -26,6 +25,9 @@ script_dir=os.path.dirname(os.path.abspath(__file__))
 file_path=os.path.join(script_dir,"scripts.json")
 database = []
 existing_ids = set()
+
+with open("cookies.json", "r", encoding="utf-8") as filp:
+    raw_cookies = json.load(filp)
 
 if os.path.exists(file_path):
     with open(file_path, "r", encoding="UTF-8") as filp:
@@ -76,10 +78,20 @@ SUBREDDITS = [
     "Jokes"
 ]
 
-headers = {
-    "User-Agent": "windows:viral.content.bot:v2.0 (by /u/banana_737)"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
 }
 
+COOKIES = {cookie['name'] : cookie['value'] for cookie in raw_cookies}
+
+session = requests.Session(impersonate="chrome120")
+session.cookies.update(COOKIES)
+session.headers.update(HEADERS)
 
 def sanitize_text(raw_text: str) -> str:
     text=html.unescape(raw_text)
@@ -254,7 +266,7 @@ def fetch_brainrot_story(subreddit_name: str, existing_ids:set ) -> dict:
     try:
         api_url = f"https://www.reddit.com/r/{subreddit_name}/top.json?t=day&limit={LIMIT}"
         time.sleep(5);
-        response = requests.get(url=api_url, impersonate="chrome", timeout=10)
+        response = session.get(url= api_url)
         response.raise_for_status()
         data = response.json()
     except requests.exceptions.HTTPError as e:
