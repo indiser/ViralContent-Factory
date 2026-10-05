@@ -559,6 +559,17 @@ Contributions are welcome! Please follow these steps:
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
+## Star History
+
+<a href="https://www.star-history.com/?repos=indiser%2Fviralcontent-factory&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=indiser/viralcontent-factory&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=indiser/viralcontent-factory&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=indiser/viralcontent-factory&type=date&legend=top-left" />
+ </picture>
+</a>
+
+---
 
 ## 🙏 Acknowledgments
 
