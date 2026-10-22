@@ -17,6 +17,17 @@
 
 </div>
 
+## 🆕 What's New
+
+> **Reddit blocked the `.json` API endpoint entirely.** Phase 1 has been fully rewritten to work around this.
+
+- **RSS-based scraping**: Phase 1 now hits `reddit.com/r/{sub}/top.rss` instead of the dead `.json` endpoint
+- **feedparser + BeautifulSoup**: RSS feed parsing via `feedparser`, post body extraction via `bs4` (parses the embedded HTML `<div class="md">` inside each RSS entry)
+- **Subreddit list externalized**: Subreddits are no longer hardcoded in `phase1.py` — they live in `subreddits.txt` (one per line), so you can add/remove without touching code
+- `cookies.json` + `curl_cffi` Chrome impersonation are still used — the RSS endpoint also requires a valid session to avoid 403s
+
+---
+
 ## 🚀 Overview
 
 **ViralContent Factory** is an end-to-end automated content generation system that transforms Reddit stories into professionally edited, viral-ready short-form videos for TikTok, YouTube Shorts, and Instagram Reels. The pipeline handles everything from content discovery to final video rendering with zero manual intervention.
@@ -35,8 +46,9 @@
 ## ✨ Features
 
 ### 🔍 **Phase 1: Intelligent Content Acquisition**
-- **Multi-Source Scraping**: Waterfall system across 30+ high-engagement subreddits (AITA, TIFU, TrueOffMyChest, confessions, pettyrevenge, etc.)
-- **Browser Impersonation**: Uses `curl_cffi` with `impersonate="chrome120"` — bypasses Reddit's bot detection that broke the old anonymous `.json` endpoint trick
+- **Multi-Source Scraping**: Waterfall system across 30+ high-engagement subreddits (AITA, TIFU, TrueOffMyChest, confessions, pettyrevenge, etc.) loaded from `subreddits.txt`
+- **RSS-Based Scraping**: Fetches `reddit.com/r/{sub}/top.rss` — replaces the now-blocked `.json` endpoint. Post bodies are extracted from the embedded HTML using `feedparser` + `BeautifulSoup`
+- **Browser Impersonation**: Uses `curl_cffi` with `impersonate="chrome120"` — required even for RSS to avoid 403s
 - **Cookie-Based Authentication**: Loads real browser cookies from `cookies.json` (exported via Cookie Editor extension) into a persistent session, making requests indistinguishable from a logged-in Chrome user
 - **Rate Limiting**: 5-second sleep between subreddit requests to avoid triggering Reddit's rate limiter
 - **Smart Filtering**:
@@ -152,6 +164,7 @@ AutoContent/
 ├── 📦 requirements.txt      # Python dependencies
 ├── 🗄️ scripts.json          # Persistent story database with per-platform tracking
 ├── 🍪 cookies.json          # Reddit browser cookies (exported via Cookie Editor)
+├── 📋 subreddits.txt        # Subreddit list (one per line, loaded by phase1.py)
 ├── 📝 hidden_depedencies.txt # System dependency checklist
 ├── 📄 TrendingDescription.txt # Sample trending content reference
 ├── 🎬 downloads/            # Background video assets (2 videos included)
@@ -171,6 +184,7 @@ AutoContent/
 | **Video Processing** | MoviePy 1.0.3 | Compositing & rendering |
 | **Image Processing** | ImageMagick | Text rendering backend for subtitles |
 | **Web Scraping** | curl_cffi | Reddit scraping with Chrome browser impersonation |
+| **Feed Parsing** | feedparser + BeautifulSoup | RSS feed parsing & HTML body extraction |
 | **NLP** | langdetect | Language filtering |
 | **Video Download** | yt-dlp | Background footage acquisition |
 | **Email** | smtplib | Gmail SMTP notifications |
@@ -214,6 +228,8 @@ pip install -r requirements.txt
 - openai
 - google-genai
 - huggingface_hub
+- feedparser
+- beautifulsoup4
 
 ### Step 3: Install System Dependencies
 
@@ -366,14 +382,12 @@ Returns absolute paths of all videos in `ready_to_upload/` for batch upload scri
 
 ### Add More Subreddits
 
-Edit `phase1.py` lines 42-77:
+Edit `subreddits.txt` — one subreddit name per line, no `r/` prefix:
 
-```python
-SUBREDDITS = [
-    "AmItheAsshole",
-    "AITAH",
-    "YourNewSubreddit",  # Add here
-]
+```
+AmItheAsshole
+AITAH
+YourNewSubreddit
 ```
 
 **Current subreddits (30+):**
