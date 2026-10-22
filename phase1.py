@@ -10,7 +10,8 @@ from llm_router import chat_fast, chat_strong
 from datetime import datetime
 import ctypes
 import time
-from requests.exceptions import RequestException
+import feedparser
+from bs4 import BeautifulSoup
 load_dotenv()
 
 def prevent_sleep():
@@ -25,6 +26,7 @@ script_dir=os.path.dirname(os.path.abspath(__file__))
 file_path=os.path.join(script_dir,"scripts.json")
 database = []
 existing_ids = set()
+SUBREDDIT_PATH = os.path.join(script_dir,"subreddits.txt")
 
 with open("cookies.json", "r", encoding="utf-8") as filp:
     raw_cookies = json.load(filp)
@@ -39,48 +41,14 @@ if os.path.exists(file_path):
             print("WARNING: Database corrupted. Starting fresh.")
 
 
-LIMIT = 1000
+LIMIT = 100
 # 1. Define your fallback hierarchy
-SUBREDDITS = [
-    "AmItheAsshole",
-    "AITAH",               # The uncensored alternative to AITA
-    "TrueOffMyChest",
-    "confessions",
-    "confession",
-    "tifu",
-    "pettyrevenge",        # High-satisfaction payoff stories
-    "entitledparents",     # Massive engagement and rage-bait
-    "MaliciousCompliance", # Clever revenge stories
-    "EntitledPeople",
-    "relationships",
-    "relationship_advice",
-    "Vent",
-    "stories",
-    "moraldilemmas",
-    "EntitledPeople",
-    "self",
-    "PointlessStories",
-    "TwoHotTakes",
-    "dating",
-    "offmychest",
-    "UnsentLetters",
-    "SeriousConversation",
-    "Adulting",
-    "lonely",
-    "BreakUps",
-    "TalesFromTheFrontDesk",
-    "legaladvice",
-    "RBI",
-    "UnresolvedMysteries",
-    "Glitch_in_the_Matrix",
-    "raisedbynarcissists",
-    "dadjokes",
-    "Jokes"
-]
+with open(SUBREDDIT_PATH, "r", encoding="utf-8") as filp:
+    SUBREDDITS = [link.strip() for link in filp if link.strip()]
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "application/json",
+    "Accept": "application/atom+xml",
     "Accept-Language": "en-US,en;q=0.9",
     "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
     "Sec-Ch-Ua-Mobile": "?0",
@@ -96,10 +64,11 @@ session.headers.update(HEADERS)
 def sanitize_text(raw_text: str) -> str:
     text=html.unescape(raw_text)
     # 1. Strip rogue URLs first
-    text = re.sub(r'http\S+', '', raw_text)
+    text = re.sub(r'http\S+', '', text)
     text = re.sub(r'\b[ru]/[A-Za-z0-9_-]+\b', '', text)
     text = re.sub(r'(?i)\bTL;?DR\b.*', '', text, flags=re.DOTALL)
     text = re.sub(r'(?i)\bEdit:? ?\d?\b.*', '', text, flags=re.DOTALL)
+    text = re.sub(r'(?im)^\s*(edit|update):?\s*\d?.*', '', text, flags=re.DOTALL)
     text = re.sub(r'(?i)\bUpdate:? ?\d?\b.*', '', text, flags=re.DOTALL)
     text = re.sub(r'[*_~•▪●\t]', ' ', text)
     text = re.sub(r' +', ' ', text).strip()
@@ -261,26 +230,47 @@ def generate_viral_hook(title: str, story_text: str) -> str:
     except Exception as e:
         print(f"LLM Hook Generation Failed: {e}. Defaulting to original title.")
         return title
-    
+
+BLOCK_TAGS = ["p", "li", "h1", "h2", "h3", "h4", "h5", "h6"]
+
+def rss_to_posts(content: bytes) -> list:
+    feed = feedparser.parse(content)
+    posts = []
+    for e in feed.entries:
+        html_body = e.content[0].value if e.get("content") else ""
+        soup = BeautifulSoup(html_body, "html.parser")
+        md = soup.find("div", class_="md")  # post body. footer table (submitted by...) outside it
+        if md:
+            selftext = "\n\n".join(b.get_text() for b in md.find_all(BLOCK_TAGS))
+        else:
+            selftext = ""  # link/image post, no body
+        posts.append({
+            "id": e.id.replace("t3_", ""),
+            "title": e.title,
+            "selftext": selftext,
+            "url": e.link,  # permalink = same as json url for self posts
+        })
+    return posts
+
 def fetch_brainrot_story(subreddit_name: str, existing_ids:set ) -> dict:
     try:
-        api_url = f"https://www.reddit.com/r/{subreddit_name}/top.json?t=day&limit={LIMIT}"
+        api_url = f"https://www.reddit.com/r/{subreddit_name}/top.rss?t=day&limit={LIMIT}"
         time.sleep(5);
         response = session.get(url= api_url)
         response.raise_for_status()
-        data = response.json()
+        posts = rss_to_posts(response.content)
     except requests.exceptions.HTTPError as e:
         print(f"HTTP Error on {subreddit_name}: {e}")
         raise RuntimeError(f"HTTP Error: {e}")
-    except RequestException as e:
+    except requests.exceptions.RequestException as e:
         print(f"Network drop on {subreddit_name}: {e}")
         raise RuntimeError(f"Network Error: {e}")
 
-    for child in data['data']['children']:
-        id = child['data']['id']
-        original_story = child['data']['selftext']
-        original_title = child['data']['title']
-        url = child['data']['url']
+    for post in posts:
+        id = post["id"]
+        original_story = post["selftext"]
+        original_title = post["title"]
+        url = post["url"]
         words = original_story.split()
         story=sanitize_text(original_story)
         title=sanitize_text(original_title)
@@ -358,5 +348,3 @@ def load_from_local_database() -> dict:
             return {"id": item["id"], "title": item["title"], "story": item["story"]}
             
     raise ValueError("FATAL: Backlog is completely empty.")
-
-
